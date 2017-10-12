@@ -16,7 +16,7 @@ import time
 # Configuration options
 NOTIFY_WINS_ONLY = True # notify on wins only, if False also reports general balance updates
 MONITOR_TEMPERATURE = True # only set true for Raspberry Pi or a system with similar temperature monitoring
-TEMPERATURE_WARNING_THRESHOLD = 80.0 # warn if temperature exceeds this threshold in Celcius
+TEMPERATURE_WARNING_THRESHOLD = 80.0 # warn if temperature exceeds this threshold in Celsius
 
 # Assumes system is configured to use /usr/bin/mail.
 # Easy setup ref: http://www.raspberry-projects.com/pi/software_utilities/email/ssmtp-to-send-emails

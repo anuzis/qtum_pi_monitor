@@ -1,3 +1,5 @@
+#!/usr/bin/python
+
 """ Simple script to monitor QTUM wallet and notify when blocks are won.
 
 Runs via cron. Ref: https://www.howtoforge.com/a-short-introduction-to-cron-jobs

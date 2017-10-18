@@ -11,16 +11,17 @@ import subprocess
 import json
 import os
 import sys
-import time
+import datetime
 
 # Configuration options
-NOTIFY_WINS_ONLY = True # notify on wins only, if False also reports general balance updates
+NOTIFY_ALWAYS = False # False notifies on wins only, if True also reports general balance updates
+DAILY_STATUS_UPDATE = True # Send a daily status update to confirm still running
 MONITOR_TEMPERATURE = True # only set true for Raspberry Pi or a system with similar temperature monitoring
 TEMPERATURE_WARNING_THRESHOLD = 80.0 # warn if temperature exceeds this threshold in Celsius
 
 # Assumes system is configured to use /usr/bin/mail.
 # Easy setup ref: http://www.raspberry-projects.com/pi/software_utilities/email/ssmtp-to-send-emails
-RECIPIENT_EMAIL = 'user@gmail.com'
+RECIPIENT_EMAIL = 'YOUR_EMAIL_HERE@gmail.com'
 
 QTUM_PATH = '/home/pi/qtum/'
 LOG_FILE = QTUM_PATH + 'qtum_monitor.log'
@@ -31,6 +32,7 @@ STATE_DATA = {
     'stake': 0.0,
     'total_balance': 0.0,
     'last_block_time_won': 0, # epoch seconds of last block win
+    'date': datetime.date.today().isoformat()
 }
 
 if __name__ == '__main__':
@@ -52,8 +54,16 @@ if __name__ == '__main__':
         cmd = 'echo "QTUM Errors: %s" | /usr/bin/mail -s "QTUM Errors" %s' % (str(staking_info['errors']), RECIPIENT_EMAIL)
         ssmpt = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         sys.exit()
+    if wallet_info['unlocked_until'] == 0:
+        cmd = 'echo "QTUM Locked - Not Staking" | /usr/bin/mail -s "QTUM Locked - Not Staking" %s' % RECIPIENT_EMAIL
+        ssmpt = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        sys.exit()
     if staking_info['enabled'] != True:
         cmd = 'echo "QTUM Staking disabled." | /usr/bin/mail -s "QTUM staking disabled." %s' % RECIPIENT_EMAIL
+        ssmpt = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+        sys.exit()
+    if staking_info['staking'] != True:
+        cmd = 'echo "QTUM Not Yet Staking" | /usr/bin/mail -s "QTUM Not Yet Staking" %s' % RECIPIENT_EMAIL
         ssmpt = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         sys.exit()
     if MONITOR_TEMPERATURE:
@@ -68,6 +78,7 @@ if __name__ == '__main__':
     latest_data['balance'] = wallet_info['balance']
     latest_data['stake'] = wallet_info['stake']
     latest_data['total_balance'] = wallet_info['balance'] + wallet_info['stake']
+    latest_data['date'] = datetime.date.today().isoformat()
 
     # Read prior status for comparison, creating log file if none.
     if not os.path.exists(LOG_FILE):
@@ -86,11 +97,15 @@ if __name__ == '__main__':
 
     # Report on results
     if latest_data['stake'] > prior_data['stake']:
-        latest_data['latest_block_time_won'] = int(time.time())
+        latest_data['last_block_time_won'] = int(time.time())
         cmd = 'echo "Stake earned! Balance: %d Stake: %d" | /usr/bin/mail -s "Stake earned!" %s' % (int(latest_data['balance']), int(latest_data['stake']), RECIPIENT_EMAIL)
         ssmpt = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    if not NOTIFY_WINS_ONLY:
+    if NOTIFY_ALWAYS:
         cmd = 'echo "Balance: %d Stake: %d" | /usr/bin/mail -s "Update" %s' % (int(latest_data['balance']), int(latest_data['stake']), RECIPIENT_EMAIL)
+        ssmpt = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    if DAILY_STATUS_UPDATE and (latest_data['date'] != prior_data['date']):
+        cmd = 'echo "Balance: %d Stake: %d" | /usr/bin/mail -s "%s Daily Update: %d" %s' % (
+            int(latest_data['balance']), int(latest_data['stake']), latest_data['date'], int(latest_data['total_balance']), RECIPIENT_EMAIL)
         ssmpt = subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
 
     # Write latest state to log
